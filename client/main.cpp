@@ -3,7 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <cstdio>
-#include <curl/curl.h>
+#include <libwebsockets.h>
 #include <string>
 #include <algorithm>
 
@@ -25,7 +25,6 @@ struct LinkedMem {
 };
 
 LinkedMem *lm = NULL;
-CURL *curl;
 
 void initMumble() {
 
@@ -44,7 +43,7 @@ void initMumble() {
 
 float lastPos[3];
 
-void updateMumble() {
+void updateMumble(libwebsocket *wsi) {
 	if (! lm)
 		return;
 
@@ -66,29 +65,33 @@ void updateMumble() {
 	if (len != 0) {
 		buff[len - 1] = '\0';
 	}
-	sprintf(url, "http://gw2api.teichroeb.net:37645/%s,\"x\":%f,\"y\":%f,\"z\":%f}", buff, lm->fAvatarPosition[0], lm->fAvatarPosition[1], lm->fAvatarPosition[2]);
+	sprintf(url, "%s,\"x\":%f,\"y\":%f,\"z\":%f}", buff, lm->fAvatarPosition[0], lm->fAvatarPosition[1], lm->fAvatarPosition[2]);
 	std::string u = url;
 	u.erase(std::remove_if(u.begin(), u.end(), isspace), u.end());
-	curl_easy_setopt(curl, CURLOPT_URL, u.c_str());
-	CURLcode res = curl_easy_perform(curl);
 	for (int i = 0; i < 3; ++i) {
 		lastPos[i] = lm->fAvatarPosition[i];
+	}
+
+	unsigned char buf[LWS_SEND_BUFFER_PRE_PADDING + 2048 + LWS_SEND_BUFFER_POST_PADDING];
+	unsigned char *p = &buf[LWS_SEND_BUFFER_PRE_PADDING];
+	int size = u.length();
+	memcpy(p, u.c_str(), size);
+	int res = libwebsocket_write(wsi, p, size, LWS_WRITE_TEXT);
+	if (res < 0 || res < size) {
+		printf("Bad %d\n", res);
 	}
 	
 	printf("%f %f %f\n", lm->fAvatarPosition[0], lm->fAvatarPosition[1], lm->fAvatarPosition[2]);
 }
 
+void runSocket();
+
 int main() {
-	initMumble();
 	for (int i = 0; i < 3; ++i) {
 		lastPos[i] = 0;
 	}
+	initMumble();
+	runSocket();
 
-	curl = curl_easy_init();
-
-	while (1) {
-		updateMumble();
-		Sleep(1);
-	}
-	curl_easy_cleanup(curl);
 }
+
