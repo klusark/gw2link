@@ -64,13 +64,15 @@ callback_pacmacro(libwebsocket_context *context,
 	switch (reason) {
 
 	case LWS_CALLBACK_ESTABLISHED:
-		conn->id = nextid;
+		memset(conn, 0, sizeof(Connection));
+		*conn = Connection(nextid, wsi, context);
 		++nextid;
 		fprintf(stderr, "New Connection\n");
 		break;
 
 	case LWS_CALLBACK_SERVER_WRITEABLE:
-		fprintf(stderr, "Can write\n");
+		//fprintf(stderr, "Can write\n");
+		conn->send();
 		break;
 
 	case LWS_CALLBACK_RECEIVE:
@@ -83,7 +85,6 @@ callback_pacmacro(libwebsocket_context *context,
 		}
 		const char *type = json_string_value(json_object_get(json, "type"));
 		if (strcmp(type, "login") == 0) {
-			conn->wsi = wsi;
 			g_game->addConnection(conn);
 
 		}
@@ -92,6 +93,8 @@ callback_pacmacro(libwebsocket_context *context,
 	case LWS_CALLBACK_CLOSED:
 		fprintf(stderr, "Disconnect\n");
 		g_game->removeConnection(conn);
+		break;
+	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 		break;
 	default:
 		printf("ASDF %d\n", reason);
@@ -114,6 +117,8 @@ static struct libwebsocket_protocols protocols[] = {
 		"pacmacro",
 		callback_pacmacro,
 		sizeof(Connection),
+		256,
+		0
 	},
 	{
 		NULL, NULL, 0		/* End of list */

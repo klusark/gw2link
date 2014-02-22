@@ -21,7 +21,7 @@ void Game::removeConnection(Connection *connection) {
 
 void Game::sendToAll(const std::string &str) {
 	for (int i = 0; i < _connections.size(); ++i) {
-		_connections[i]->send(str);
+		_connections[i]->queue(str);
 	}
 }
 
