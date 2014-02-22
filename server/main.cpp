@@ -8,52 +8,14 @@
 #include "Game.hpp"
 
 enum protocols {
-	PROTOCOL_HTTP = 0,
-	PROTOCOL_PACMACRO,
+	PROTOCOL_WEB,
+	PROTOCOL_POSITION,
 };
-
-static int callback_http(libwebsocket_context *context,
-			libwebsocket *wsi,
-			enum libwebsocket_callback_reasons reason,
-					       void *user, void *in, size_t len)
-{
-	switch (reason) {
-	case LWS_CALLBACK_HTTP:
-		//fprintf(stderr, "HTTP\n");
-		{
-/*		json_error_t error;
-		char *j = ((char *)in) + 1;
-
-		json_t *json = json_loads(j, 0, &error);
-
-		if (json == nullptr) {
-			fprintf(stderr, "JSON ERROR: %s\n", j);
-			return -1;
-		}
-		const char *name = json_string_value(json_object_get(json, "name"));
-
-		fprintf(stderr, "%s\n", name);*/
-		std::string str = ((char *)in)+1;
-		g_game->sendToAll(str);
-		}
-		//fprintf(stderr, "%s\n", (char*)in);
-		libwebsockets_return_http_status(context, wsi,
-								HTTP_STATUS_OK, NULL);
-		return -1;
-		break;
-	case LWS_CALLBACK_FILTER_NETWORK_CONNECTION:
-		break;
-	default:
-		//printf("%d\n", reason);
-		break;
-	}
-	return 0;
-}
 
 static int nextid = 0;
 
 static int
-callback_pacmacro(libwebsocket_context *context,
+callback_web(libwebsocket_context *context,
 			libwebsocket *wsi,
 			enum libwebsocket_callback_reasons reason,
 					       void *user, void *in, size_t len)
@@ -71,13 +33,11 @@ callback_pacmacro(libwebsocket_context *context,
 		break;
 
 	case LWS_CALLBACK_SERVER_WRITEABLE:
-		//fprintf(stderr, "Can write\n");
 		conn->send();
 		break;
 
 	case LWS_CALLBACK_RECEIVE:
 		{
-		fprintf(stderr, "rx %d %s\n", (int)len, (const char *)in);
 		json_error_t error;
 		json_t *json = json_loads(recv, 0, &error);
 		if (json == nullptr) {
@@ -97,27 +57,68 @@ callback_pacmacro(libwebsocket_context *context,
 	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 		break;
 	default:
-		printf("ASDF %d\n", reason);
+		//printf("Web Receive%d\n", reason);
+		break;
+	}
+
+	return 0;
+}
+static int
+callback_position(libwebsocket_context *context,
+			libwebsocket *wsi,
+			enum libwebsocket_callback_reasons reason,
+					       void *user, void *in, size_t len)
+{
+	Connection *conn = (Connection *)user;
+	const char *recv = (const char *)in;
+
+	switch (reason) {
+
+	case LWS_CALLBACK_ESTABLISHED:
+		memset(conn, 0, sizeof(Connection));
+		*conn = Connection(nextid, wsi, context);
+		++nextid;
+		fprintf(stderr, "New Connection\n");
+		break;
+
+	case LWS_CALLBACK_SERVER_WRITEABLE:
+		conn->send();
+		break;
+
+	case LWS_CALLBACK_RECEIVE:
+	{
+		std::string str = ((char *)in);
+		g_game->sendToAll(str);
+	}
+		break;
+	case LWS_CALLBACK_CLOSED:
+		fprintf(stderr, "PositionDisconnect\n");
+		break;
+	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
+		break;
+	default:
+		//printf("Position Unhandled %d\n", reason);
 		break;
 	}
 
 	return 0;
 }
 
-
 /* list of supported protocols and callbacks */
 
 static struct libwebsocket_protocols protocols[] = {
 	{
-		"http",
-		callback_http,
+		"web",
+		callback_web,
+		sizeof(Connection),
 		0,
+		0
 	},
 	{
-		"pacmacro",
-		callback_pacmacro,
+		"position",
+		callback_position,
 		sizeof(Connection),
-		256,
+		0,
 		0
 	},
 	{
