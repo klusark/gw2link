@@ -11,9 +11,11 @@ public:
 	Connection(int id, libwebsocket *wsi, libwebsocket_context *context);
 	void queue(const std::string &data);
 	void send();
+	void markRemoved();
 	libwebsocket *_wsi;
 	libwebsocket_context *_context;
 	int _id;
 	char _buffer[1024];
 	bool _dataToSend;
+	bool _removed;
 };

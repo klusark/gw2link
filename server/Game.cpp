@@ -15,6 +15,11 @@ void Game::addConnection(Connection *connection) {
 }
 
 void Game::removeConnection(Connection *connection) {
+	if (connection->_removed) {
+		return;
+	}
+	connection->markRemoved();
+
 	auto it = std::find(_connections.begin(), _connections.end(), connection);
 	_connections.erase(it);
 }

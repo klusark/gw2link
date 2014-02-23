@@ -11,6 +11,7 @@ Connection::Connection(int id, libwebsocket *wsi, libwebsocket_context *context)
 	_context = context;
 	_dataToSend = false;
 	memset(_buffer, 0, 1024);
+	_removed = false;
 }
 
 void Connection::queue(const std::string &data) {
@@ -33,4 +34,10 @@ void Connection::send() {
 	if (res < 0 || res < size) {
 		printf("Bad %d\n", res);
 	}
+}
+
+void Connection::markRemoved() {
+	_removed = true;
+	_wsi = nullptr;
+	_context = nullptr;
 }
